@@ -2,15 +2,9 @@ import { requireSession } from './auth.js';
 import { requireString, requireEnum } from '../lib/validate.js';
 import { NotFoundError, ForbiddenError } from '../lib/errors.js';
 import { assertCsrf, CSRF_COOKIE, CSRF_HEADER } from '../lib/csrf.js';
-import { randomBytes } from 'node:crypto';
+import { generateUniqueDemoIban } from '../lib/demoIban.js';
 
 const ACCOUNT_TYPES = ['checking', 'savings', 'investment'];
-
-// Deterministic-looking but random demo IBAN. Not a real bank sort code.
-function generateDemoIban() {
-  const digits = randomBytes(8).toString('hex').replace(/[^0-9]/g, '').padEnd(16, '0').slice(0, 16);
-  return `FR76BRKA${digits}`;
-}
 
 export function ownedAccountOrThrow(db, accountId, userId) {
   const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(accountId);
@@ -35,13 +29,7 @@ export function registerAccountRoutes(router, { db }) {
     const type = requireEnum(ctx.body.type, 'type', ACCOUNT_TYPES);
     const name = requireString(ctx.body.name, 'name', { min: 1, max: 80 });
 
-    let iban = generateDemoIban();
-    // Extremely unlikely collision loop, bounded for safety.
-    for (let i = 0; i < 5; i++) {
-      const clash = db.prepare('SELECT id FROM accounts WHERE iban = ?').get(iban);
-      if (!clash) break;
-      iban = generateDemoIban();
-    }
+    const iban = generateUniqueDemoIban(db);
 
     const info = db
       .prepare('INSERT INTO accounts (user_id, type, iban, name, balance_cents) VALUES (?, ?, ?, ?, 0)')

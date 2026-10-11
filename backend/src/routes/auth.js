@@ -4,6 +4,7 @@ import { requireEmail, requireString } from '../lib/validate.js';
 import { ValidationError, AuthError, ConflictError, RateLimitError } from '../lib/errors.js';
 import { serializeCookie, clearCookie, appendSetCookie } from '../lib/http.js';
 import { generateCsrfToken, CSRF_COOKIE } from '../lib/csrf.js';
+import { createStarterAccounts } from '../seed.js';
 
 export const SESSION_COOKIE = 'session';
 const LOCK_THRESHOLD = 8;
@@ -39,6 +40,7 @@ export function registerAuthRoutes(router, { db, limiters }) {
       .prepare('INSERT INTO users (email, password_hash, full_name) VALUES (?, ?, ?)')
       .run(email, passwordHash, fullName);
     const userId = Number(info.lastInsertRowid);
+    createStarterAccounts(db, userId);
 
     const { token, expiresAt } = createSession(db, userId, ctx.req.headers['user-agent'] ?? null);
     setAuthCookies(ctx.res, token, expiresAt);

@@ -7,9 +7,11 @@ import { RateLimiter } from './lib/rateLimit.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerAccountRoutes } from './routes/accounts.js';
 import { registerTransferRoutes } from './routes/transfers.js';
+import { seedDemoAccount } from './seed.js';
 
 export function createApp({ dbPath, corsOrigin }) {
   const db = openDb(dbPath);
+  seedDemoAccount(db);
   const router = new Router();
 
   const limiters = {
@@ -95,7 +97,7 @@ export function createApp({ dbPath, corsOrigin }) {
 async function main() {
   const PORT = Number(process.env.PORT ?? 3001);
   const DB_PATH = process.env.DB_PATH ?? 'data/bank.db';
-  const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
+  const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
 
   const { server, db } = createApp({ dbPath: DB_PATH, corsOrigin: CORS_ORIGIN });
 

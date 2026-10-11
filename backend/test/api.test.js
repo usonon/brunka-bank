@@ -149,16 +149,33 @@ test('state-changing requests require a matching CSRF token', async () => {
   assert.equal(withCsrf.status, 201);
 });
 
-test('new accounts start at a zero balance and list correctly', async () => {
+test('manually created accounts start at a zero balance and list correctly', async () => {
   const client = makeClient(ctx.baseUrl);
   await registerUser(client);
-  await client.post('/api/accounts', { type: 'checking', name: 'Main' });
-  await client.post('/api/accounts', { type: 'savings', name: 'Savings' });
+  const checking = await client.post('/api/accounts', { type: 'checking', name: 'Main' });
+  const savings = await client.post('/api/accounts', { type: 'savings', name: 'Savings' });
+  assert.equal(checking.status, 201);
+  assert.equal(checking.body.account.balance_cents, 0);
+  assert.equal(savings.body.account.balance_cents, 0);
 
   const list = await client.get('/api/accounts');
   assert.equal(list.status, 200);
-  assert.equal(list.body.accounts.length, 2);
-  for (const acc of list.body.accounts) assert.equal(acc.balance_cents, 0);
+  const ids = list.body.accounts.map((acc) => acc.id);
+  assert.ok(ids.includes(checking.body.account.id));
+  assert.ok(ids.includes(savings.body.account.id));
+});
+
+test('registration seeds three pre-funded starter accounts', async () => {
+  const client = makeClient(ctx.baseUrl);
+  await registerUser(client);
+
+  const list = await client.get('/api/accounts');
+  assert.equal(list.status, 200);
+  assert.equal(list.body.accounts.length, 3);
+  for (const acc of list.body.accounts) {
+    assert.ok(acc.balance_cents > 0);
+    assert.ok(['checking', 'savings', 'investment'].includes(acc.type));
+  }
 });
 
 test('transfer with insufficient balance is rejected and moves nothing', async () => {
@@ -175,7 +192,9 @@ test('transfer with insufficient balance is rejected and moves nothing', async (
   assert.equal(transfer.status, 400);
 
   const list = await client.get('/api/accounts');
-  for (const acc of list.body.accounts) assert.equal(acc.balance_cents, 0);
+  const byId = Object.fromEntries(list.body.accounts.map((acc) => [acc.id, acc]));
+  assert.equal(byId[a.body.account.id].balance_cents, 0);
+  assert.equal(byId[b.body.account.id].balance_cents, 0);
 });
 
 test('internal transfer atomically moves money and records both legs', async () => {
