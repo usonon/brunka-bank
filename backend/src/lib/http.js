@@ -54,8 +54,16 @@ export function parseCookies(req) {
   return out;
 }
 
+// SameSite=None (not Lax): the frontend and backend are commonly deployed
+// on two different hosts (e.g. two separate onrender.com services), which
+// browsers treat as cross-site even though both are ours. A Lax cookie is
+// stored fine on login but is withheld from the cross-site fetch calls the
+// SPA makes right after — the browser silently drops every authenticated
+// request, which looks like "login does nothing". None requires Secure
+// (always true below), so this is safe, and it also works unchanged when
+// frontend and backend share an origin (local dev via the Vite proxy).
 export function serializeCookie(name, value, { maxAgeSeconds, httpOnly = true, secure = true } = {}) {
-  const parts = [`${name}=${encodeURIComponent(value)}`, 'Path=/', 'SameSite=Lax'];
+  const parts = [`${name}=${encodeURIComponent(value)}`, 'Path=/', 'SameSite=None'];
   if (httpOnly) parts.push('HttpOnly');
   if (secure) parts.push('Secure');
   if (typeof maxAgeSeconds === 'number') parts.push(`Max-Age=${maxAgeSeconds}`);
